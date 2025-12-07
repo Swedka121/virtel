@@ -193,10 +193,9 @@ jobs:
           echo "${{env.ANDROID_HOME}}\cmdline-tools\latest\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
           echo "${{env.ANDROID_HOME}}\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Append
 
-          cmd /c """${{env.ANDROID_HOME}}\cmdline-tools\latest\bin\sdkmanager.bat""" --sdk_root=$env:ANDROID_HOME `
-              `"platform-tools`" `
-              `"platforms;android-${{ env.ANDROID_SDK_PLATFORM }}`" `
-              `"ndk;${{ env.ANDROID_NDK_VERSION }}`""
+          $sdkCommand = """${{env.ANDROID_HOME}}\cmdline-tools\latest\bin\sdkmanager.bat --sdk_root=$env:ANDROID_HOME `"platform-tools`" `"platforms;android-${{ env.ANDROID_SDK_PLATFORM }}`" `"ndk;${{ env.ANDROID_NDK_VERSION }}`""""
+
+          cmd /c $sdkCommand
 
       - name: Configure Android SDK for Gradle
         shell: pwsh
