@@ -83,7 +83,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          path: composeApp/build/compose/binaries/main/*.deb
+          path: composeApp/build/compose/binaries/main/deb/*.deb
 
   build-android:
     runs-on: ubuntu-latest
