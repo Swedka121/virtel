@@ -83,7 +83,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          path: composeApp/build/compose/binaries/main/deb/*.deb
+          path: composeApp/build/compose/binaries/main/deb/*
 
   build-android:
     runs-on: ubuntu-latest
@@ -232,7 +232,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          path: composeApp\build\compose\binaries\main\*.exe
+          path: composeApp\build\compose\binaries\main\exe\*
   release:
     name: Download and release
     runs-on: ubuntu-latest
@@ -258,7 +258,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ steps.extract.outputs.BLOCK_NAME }} ${{ steps.extract.outputs.VERSION_BASE }} ${{ steps.extract.outputs.VERSION_NAME }}
-          body_path: ./RELEASE.MD
+          body_path: RELEASE.MD
           prerelease: ${{ steps.extract.outputs.BLOCK_NAME == 'preRelease' }}
           tag_name: ${{ github.ref_name }}
           make_latest: ${{ steps.extract.outputs.BLOCK_NAME != 'preRelease' }}
