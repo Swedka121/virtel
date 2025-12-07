@@ -216,6 +216,9 @@ jobs:
 
           cmd /c $sdkCommand
 
+          $sdkPath = "${{ env.ANDROID_HOME }}" -replace '\\', '/'
+          "sdk.dir=$sdkPath" | Out-File -FilePath local.properties
+
       - name: Configure Android SDK for Gradle
         shell: pwsh
         run: |
