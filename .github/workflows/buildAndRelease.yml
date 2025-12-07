@@ -4,7 +4,7 @@ name: Build
 run-name: Build
 
 env:
-  ANDROID_SDK_PLATFORM: android-36
+  ANDROID_SDK_PLATFORM: 36
   ANDROID_NDK_VERSION: 25.2.9519653
   CMDLINE_TOOLS_URL: https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
   JDK_VERSION: 17
@@ -129,7 +129,7 @@ jobs:
 
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME \
             "platform-tools" \
-            "platforms;${{ env.ANDROID_SDK_PLATFORM }}" \
+            "platforms;android-${{ env.ANDROID_SDK_PLATFORM }}" \
             "ndk;${{ env.ANDROID_NDK_VERSION }}"
 
       - name: Configure Android SDK for Gradle
@@ -155,6 +155,9 @@ jobs:
   build-win:
     runs-on: windows-latest
 
+    env:
+      ANDROID_HOME: ${{ github.workspace }}\android-sdk
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -178,45 +181,30 @@ jobs:
 
       - name: Setup Android SDK, NDK, Platform-tools
         if: steps.android-cache.outputs.cache-hit != true
-        env:
-          ANDROID_HOME: ${{ github.workspace }}\android-sdk
         shell: pwsh
         run: |
-          # Use Windows PowerShell commands for directory operations and file downloads
-          mkdir -Path "$env:ANDROID_HOME\cmdline-tools"
+          mkdir -Path "${{env.ANDROID_HOME}}\cmdline-tools"
 
-          # Download command line tools (Note: The URL in env must point to the Windows zip)
           Invoke-WebRequest -Uri ${{ env.CMDLINE_TOOLS_URL }} -OutFile cmdline-tools.zip
 
-          # Unzip and move the tools
-          Expand-Archive -Path cmdline-tools.zip -DestinationPath "$env:ANDROID_HOME\cmdline-tools"
-          Move-Item -Path "$env:ANDROID_HOME\cmdline-tools\cmdline-tools" -Destination "$env:ANDROID_HOME\cmdline-tools\latest"
+          Expand-Archive -Path cmdline-tools.zip -DestinationPath "${{env.ANDROID_HOME}}\cmdline-tools"
+          Move-Item -Path "${{env.ANDROID_HOME}}\cmdline-tools\cmdline-tools" -Destination "${{env.ANDROID_HOME}}\cmdline-tools\latest"
 
-          # Update PATH variables (using GITHUB_PATH mechanism)
-          echo "$env:ANDROID_HOME\cmdline-tools\latest\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-          echo "$env:ANDROID_HOME\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "${{env.ANDROID_HOME}}\cmdline-tools\latest\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "${{env.ANDROID_HOME}}\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Append
 
-          # Install SDK components using sdkmanager.bat
-          cmd /c "yes | $env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat --sdk_root=$env:ANDROID_HOME `
-            `"platform-tools`" `
-            `"platforms;android-${{ env.ANDROID_SDK_PLATFORM }}`" `
-            `"ndk;${{ env.ANDROID_NDK_VERSION }}`""
+          cmd /c """${{env.ANDROID_HOME}}\cmdline-tools\latest\bin\sdkmanager.bat""" --sdk_root=$env:ANDROID_HOME `
+              `"platform-tools`" `
+              `"platforms;android-${{ env.ANDROID_SDK_PLATFORM }}`" `
+              `"ndk;${{ env.ANDROID_NDK_VERSION }}`""
 
       - name: Configure Android SDK for Gradle
-        env:
-          ANDROID_HOME: ${{ github.workspace }}\android-sdk
         shell: pwsh
         run: |
-          # Create local.properties file with Windows path
           "sdk.dir=${{ env.ANDROID_HOME }}" | Out-File -FilePath local.properties
 
-          # Update PATH variables for subsequent steps
-          echo "$env:ANDROID_HOME\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Append
-          echo "$env:ANDROID_HOME\cmdline-tools\latest\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-
-      - name: Grant execute permission for gradlew
-        run: echo "Execution permission is handled automatically on Windows."
-        shell: bash
+          echo "${{env.ANDROID_HOME}}\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "${{env.ANDROID_HOME}}\cmdline-tools\latest\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
       - name: Build with Gradle
         id: build_exe
