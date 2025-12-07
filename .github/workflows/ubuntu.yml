@@ -5,7 +5,7 @@ name: Ubuntu CI
 on:
   push:
     tags:
-      - 'v[0-9]+\.[0-9]+\.[0-9]+-(release|beta|alpha|rc|pre-release)(-\w+)?'
+      - /v\d+\.\d+\.\d-(release|beta|alpha|rc|pre-release)-\w+/g
 
 jobs:
   build:
