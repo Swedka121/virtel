@@ -157,6 +157,7 @@ jobs:
 
     env:
       ANDROID_HOME: ${{ github.workspace }}\android-sdk
+      CMDLINE_TOOLS_URL: https://dl.google.com/android/repository/commandlinetools-win-9477386_latest.zip
 
     steps:
       - name: Checkout Code
