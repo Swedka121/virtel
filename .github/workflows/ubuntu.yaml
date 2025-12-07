@@ -1,36 +1,35 @@
+# @format
+
 name: Ubuntu CI
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    tags:
+      - 'v[0-9]+\.[0-9]+\.[0-9]+-(release|beta|alpha|rc|pre-release)'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: ubuntu:22.04
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Linux deps
-        run: |
-          apt-get update
-          apt-get install -y \
-            libasound2-dev pkg-config build-essential curl unzip wget git
-
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: "17"
+          distribution: "temurin"
           cache: gradle
 
       - name: Setup Rust
         uses: moonrepo/setup-rust@v1.2.2
 
+      - name: Create cache of Android SDK
+        id: android-cache
+        uses: actions/cache@v4
+        with:
+          key: android-sdk-cache-36
+          path: ${{ github.workspace }}/android-sdk
+
       - name: Setup Android SDK, NDK, Platform-tools
+        if: steps.android-cache.outputs.cache-hit != true
         env:
           ANDROID_HOME: ${{ github.workspace }}/android-sdk
         run: |
@@ -38,15 +37,15 @@ jobs:
           curl -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
           mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-      
+
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
           echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-      
+
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME \
             "platform-tools" \
             "platforms;android-36" \
             "ndk;25.2.9519653"
-      
+
           echo "Installed SDK:"
           ls -l $ANDROID_HOME
 
@@ -73,7 +72,7 @@ jobs:
           echo "::group::jpackage Standard Output"
           cat composeApp/build/compose/logs/packageDeb/*-out.txt
           echo "::endgroup::"
-          
+
           echo "::group::jpackage Error Log"
           cat composeApp/build/compose/logs/packageDeb/*-err.txt
           echo "::endgroup::"
@@ -81,5 +80,4 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          path: composeApp/build/compose/binaries/**/**.deb
-
+          path: composeApp/build/compose/binaries/main/**.deb
