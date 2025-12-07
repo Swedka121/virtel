@@ -1,0 +1,260 @@
+# @format
+
+name: Build
+run-name: Build
+
+env:
+  ANDROID_SDK_PLATFORM: android-36
+  ANDROID_NDK_VERSION: 25.2.9519653
+  CMDLINE_TOOLS_URL: https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+  JDK_VERSION: 17
+
+on:
+  push:
+    tags:
+      - v[0-9].[0-9]+.[0-9]-*-*
+
+jobs:
+  build-debian:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev
+
+      - name: Setup JDK ${{ env.JDK_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JDK_VERSION }}
+          distribution: "temurin"
+          cache: gradle
+
+      - name: Setup Rust
+        uses: moonrepo/setup-rust@v1.2.2
+
+      - name: Create cache of Android SDK
+        id: android-cache
+        uses: actions/cache@v4
+        with:
+          key: android-sdk-cache-${{ env.ANDROID_SDK_PLATFORM }}
+          path: ${{ github.workspace }}/android-sdk
+
+      - name: Setup Android SDK, NDK, Platform-tools
+        if: steps.android-cache.outputs.cache-hit != true
+        env:
+          ANDROID_HOME: ${{ github.workspace }}/android-sdk
+        run: |
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          curl -o cmdline-tools.zip ${{ env.CMDLINE_TOOLS_URL }}
+          unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
+          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME \
+            "platform-tools" \
+            "platforms;android-${{ env.ANDROID_SDK_PLATFORM }}" \
+            "ndk;${{ env.ANDROID_NDK_VERSION }}"
+
+          echo "Installed SDK:"
+          ls -l $ANDROID_HOME
+
+      - name: Configure Android SDK for Gradle
+        env:
+          ANDROID_HOME: ${{ github.workspace }}/android-sdk
+        run: |
+          mkdir -p android-sdk
+          echo "sdk.dir=${ANDROID_HOME}" > local.properties
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        id: build_deb
+        run: ./gradlew composeApp:packageDeb
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: composeApp/build/compose/binaries/main/*.deb
+
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev
+
+      - name: Setup JDK ${{ env.JDK_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: "${{ env.JDK_VERSION }}"
+          distribution: "temurin"
+          cache: gradle
+
+      - name: Setup Rust
+        uses: moonrepo/setup-rust@v1.2.2
+
+      - name: Create cache of Android SDK
+        id: android-cache
+        uses: actions/cache@v4
+        with:
+          key: android-sdk-cache-${{ env.ANDROID_SDK_PLATFORM }}
+          path: ${{ github.workspace }}/android-sdk
+
+      - name: Setup Android SDK, NDK, Platform-tools
+        if: steps.android-cache.outputs.cache-hit != true
+        env:
+          ANDROID_HOME: ${{ github.workspace }}/android-sdk
+        run: |
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          curl -o cmdline-tools.zip ${{ env.CMDLINE_TOOLS_URL }}
+          unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
+          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME \
+            "platform-tools" \
+            "platforms;${{ env.ANDROID_SDK_PLATFORM }}" \
+            "ndk;${{ env.ANDROID_NDK_VERSION }}"
+
+      - name: Configure Android SDK for Gradle
+        env:
+          ANDROID_HOME: ${{ github.workspace }}/android-sdk
+        run: |
+          echo "sdk.dir=${ANDROID_HOME}" > local.properties
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Android Release APK
+        id: build_apk
+        run: ./gradlew :composeApp:assembleRelease
+
+      - name: Upload Artifact (APK)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-apk
+          path: composeApp/build/outputs/apk/release/*.apk
+  build-win:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup JDK ${{ env.JDK_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JDK_VERSION }}
+          distribution: "temurin"
+          cache: gradle
+
+      - name: Setup Rust (If native libraries are used)
+        uses: moonrepo/setup-rust@v1.2.2
+
+      - name: Create cache of Android SDK
+        id: android-cache
+        uses: actions/cache@v4
+        with:
+          key: android-sdk-cache-win-${{ env.ANDROID_SDK_PLATFORM }}
+          path: ${{ github.workspace }}\android-sdk
+
+      - name: Setup Android SDK, NDK, Platform-tools
+        if: steps.android-cache.outputs.cache-hit != true
+        env:
+          ANDROID_HOME: ${{ github.workspace }}\android-sdk
+        shell: pwsh
+        run: |
+          # Use Windows PowerShell commands for directory operations and file downloads
+          mkdir -Path "$env:ANDROID_HOME\cmdline-tools"
+
+          # Download command line tools (Note: The URL in env must point to the Windows zip)
+          Invoke-WebRequest -Uri ${{ env.CMDLINE_TOOLS_URL }} -OutFile cmdline-tools.zip
+
+          # Unzip and move the tools
+          Expand-Archive -Path cmdline-tools.zip -DestinationPath "$env:ANDROID_HOME\cmdline-tools"
+          Move-Item -Path "$env:ANDROID_HOME\cmdline-tools\cmdline-tools" -Destination "$env:ANDROID_HOME\cmdline-tools\latest"
+
+          # Update PATH variables (using GITHUB_PATH mechanism)
+          echo "$env:ANDROID_HOME\cmdline-tools\latest\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "$env:ANDROID_HOME\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+          # Install SDK components using sdkmanager.bat
+          cmd /c "yes | $env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat --sdk_root=$env:ANDROID_HOME `
+            `"platform-tools`" `
+            `"platforms;android-${{ env.ANDROID_SDK_PLATFORM }}`" `
+            `"ndk;${{ env.ANDROID_NDK_VERSION }}`""
+
+      - name: Configure Android SDK for Gradle
+        env:
+          ANDROID_HOME: ${{ github.workspace }}\android-sdk
+        shell: pwsh
+        run: |
+          # Create local.properties file with Windows path
+          "sdk.dir=${{ env.ANDROID_HOME }}" | Out-File -FilePath local.properties
+
+          # Update PATH variables for subsequent steps
+          echo "$env:ANDROID_HOME\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "$env:ANDROID_HOME\cmdline-tools\latest\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Grant execute permission for gradlew
+        run: echo "Execution permission is handled automatically on Windows."
+        shell: bash
+
+      - name: Build with Gradle
+        id: build_exe
+        run: .\gradlew composeApp:packageExe
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: composeApp\build\compose\binaries\main\*.exe
+  release:
+    name: Download and release
+    runs-on: ubuntu-latest
+    needs:
+      - build-android
+      - build-debian
+      - build-win
+    steps:
+      - name: Extract data from tag
+        id: extract
+        run: |
+          TAG="${{ github.ref_name }}"
+          IFS='-' read -r -a PARTS <<< "$TAG"
+
+          echo "VERSION_BASE=${PARTS[0]}" >> $GITHUB_OUTPUT
+          echo "BLOCK_NAME=${PARTS[1]}" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=${PARTS[2]}" >> $GITHUB_OUTPUT
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: ./downloaded
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.extract.outputs.BLOCK_NAME }} ${{ steps.extract.outputs.VERSION_BASE }} ${{ steps.extract.outputs.VERSION_NAME }}
+          body_path: ./RELEASE.MD
+          prerelease: ${{ steps.extract.outputs.BLOCK_NAME == 'preRelease' }}
+          tag_name: ${{ github.ref_name }}
+          make_latest: ${{ steps.extract.outputs.BLOCK_NAME != 'preRelease' }}
+          files: |
+            LICENSE
+            ./downloaded/**/*
