@@ -190,6 +190,24 @@ jobs:
           Expand-Archive -Path cmdline-tools.zip -DestinationPath "${{env.ANDROID_HOME}}\cmdline-tools"
           Move-Item -Path "${{env.ANDROID_HOME}}\cmdline-tools\cmdline-tools" -Destination "${{env.ANDROID_HOME}}\cmdline-tools\latest"
 
+          # Add diagnostic output:
+          Write-Host "--- DEBUGGING FILE PATHS ---"
+          # List the contents of the 'latest' folder
+          Write-Host "Contents of the latest folder:"
+          Get-ChildItem -Path "${{env.ANDROID_HOME}}\cmdline-tools\latest"
+
+          # List the contents of the 'bin' folder where sdkmanager.bat should be
+          Write-Host "Contents of the bin folder:"
+          Get-ChildItem -Path "${{env.ANDROID_HOME}}\cmdline-tools\latest\bin"
+
+          # Test if the file exists and is executable
+          if (Test-Path "${{env.ANDROID_HOME}}\cmdline-tools\latest\bin\sdkmanager.bat") {
+              Write-Host "✅ sdkmanager.bat FOUND and path is correct."
+          } else {
+              Write-Host "❌ sdkmanager.bat NOT FOUND in expected location."
+              exit 1 # Fail the script immediately with a clear error
+          }
+
           echo "${{env.ANDROID_HOME}}\cmdline-tools\latest\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
           echo "${{env.ANDROID_HOME}}\platform-tools" | Out-File -FilePath $env:GITHUB_PATH -Append
 
